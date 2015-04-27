@@ -15,8 +15,8 @@ import           Data.Semigroup       ((<>))
 import           Data.Text            (Text)
 import           Text.XML
 
-class ToXml a where
-  toXml :: a -> Document
+class ToDocument a where
+  toDocument :: a -> Document
 
 type Attribute = (Name,Text)
 
