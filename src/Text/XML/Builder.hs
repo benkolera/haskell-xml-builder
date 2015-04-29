@@ -3,14 +3,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Text.XML.Builder where
 
-import           Control.Applicative  (pure)
 import           Control.Category     ((.))
 import           Control.Monad.Writer (Writer, execWriter, tell)
-import           Data.Foldable        (Foldable, toList)
+import           Data.Foldable        (Foldable, traverse_)
 import           Data.Function        (flip, ($))
-import           Data.Functor         (Functor, fmap)
 import qualified Data.Map             as M
-import           Data.Maybe           (Maybe (Just, Nothing), maybe)
+import           Data.Maybe           (Maybe (Just, Nothing))
 import           Data.Semigroup       ((<>))
 import           Data.Text            (Text, pack)
 import           Text.Show            (Show, show)
@@ -61,21 +59,26 @@ textNode n t = tell $ [NodeElement (Element n M.empty [NodeContent t])]
 textNodeShow :: Show a => Name -> a -> NodeM
 textNodeShow n = textNode n . pack . show
 
-textNodeOpt :: Name -> Maybe Text -> NodeM
-textNodeOpt n = maybe (pure ()) (textNode n)
+textNodesShow :: (Foldable f, Show a) => Name -> f a -> NodeM
+textNodesShow n = traverse_ (textNodeShow n)
 
-subNode :: Element -> NodeM
-subNode = subNodes . (:[])
+textNodes :: (Foldable f) => Name -> f Text -> NodeM
+textNodes n = traverse_ (textNode n)
 
-subNodes :: Foldable t => t Element -> NodeM
-subNodes = tell . fmap NodeElement . toList
+subElement :: Element -> NodeM
+subElement = tell . (:[]) . NodeElement
 
-subNodeOpt :: Maybe Element -> NodeM
-subNodeOpt = maybe (pure ()) (subNode)
+subElements :: Foldable f => f Element -> NodeM
+subElements = traverse_ subElement
 
--- TODO: This name is awfully arbitrary. Come up with a better one.
-xmlList :: (ToNode a,Functor t,Foldable t) => (NodeM -> Element) -> t a -> NodeM
-xmlList f = subNodes . fmap (f . toNode)
+subNode :: ToNode a => (NodeM -> Element) -> a -> NodeM
+subNode f = subElement . f . toNode
+
+-- TODO: I don't really like these pluralised names when it is over
+-- a foldable. Makes it hard for the user to guess that it could work
+-- with a maybe if they are just seeing the function name.
+subNodes :: (ToNode a,Foldable t) => (NodeM -> Element) -> t a -> NodeM
+subNodes f = traverse_ (subElement . f . toNode)
 
 element :: Name -> NodeM -> Element
 element n ns = Element n M.empty (execWriter ns)
